@@ -70,13 +70,13 @@ class FxEnv(gym.Env):
                     if ticket.order_type == self.BUY:
                         # 買いチケットをクローズ
                         profit = (bid - ticket.open_price) * ticket.lots
-                        self.total_pips += profit
-                        self.total_pips_buy += profit
+                        self.info.total_pips += profit
+                        self.info.total_pips_buy += profit
                     elif ticket.order_type == self.SELL:
                         # 売りチケットをクローズ
                         profit = (ticket.open_price - ask) * ticket.lots
-                        self.total_pips += profit
-                        self.total_pips_sell += profit
+                        self.info.total_pips += profit
+                        self.info.total_pips_sell += profit
 
         # インデックスをインクリメント
         self.read_index += 1
