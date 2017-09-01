@@ -8,7 +8,7 @@ from gym import spaces
 class FxEnv(gym.Env):
     metadata = {'render.modes': ['human', 'ohlc_array']}
 
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, prev_csv_path):
         # 定数
         self.STAY = 0
         self.BUY = 1
@@ -20,6 +20,8 @@ class FxEnv(gym.Env):
         self.initial_balance = 10000
         # CSVファイルのパス
         self.csv_file_path = csv_path
+        # 前のCSVファイルのパス
+        self.prev_csv_file_path = prev_csv_path
         # スプレッド
         self.spread = 0.5
         # Point(1pipsの値)
@@ -36,12 +38,19 @@ class FxEnv(gym.Env):
     def _reset(self):
         self.info = AccountInformation(self.initial_balance)
         # CSVを読み込む
-        self.data = pandas.read_csv(self.csv_file_path,
+        data = pandas.read_csv(self.csv_file_path,
                                     names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
                                     parse_dates={'datetime': ['date', 'time']},
                                     )
+        # 先月分のCSVを5日分だけ読み込む
+        prev_data = pandas.read_csv(self.prev_csv_file_path,
+                                         names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
+                                         parse_dates={'datetime': ['date', 'time']},
+                                         )
+        prev_last_5days = prev_data.iloc(-1 * 60 * 24 * 5)
+        self.data = prev_last_5days.append(data)
         # CSVのインデックス
-        self.read_index = 0
+        self.read_index = 60 * 24 * 5
         # チケット一覧
         self.tickets = []
 
@@ -94,6 +103,7 @@ class FxEnv(gym.Env):
         1分足、5分足、30分足、4時間足、日足の5時系列データを64本分作成する
         :return:
         """
+        obs = numpy.array()
         if self._obs_type == 'human':
             # humanの場合はmatplotlibでチャートのimgを作成する
             pass
