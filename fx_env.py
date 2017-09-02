@@ -39,14 +39,14 @@ class FxEnv(gym.Env):
         self.info = AccountInformation(self.initial_balance)
         # CSVを読み込む
         data = pandas.read_csv(self.csv_file_path,
+                               names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
+                               parse_dates={'datetime': ['date', 'time']},
+                               )
+        # 先月分のCSVを5日分だけ読み込む
+        prev_data = pandas.read_csv(self.prev_csv_file_path,
                                     names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
                                     parse_dates={'datetime': ['date', 'time']},
                                     )
-        # 先月分のCSVを5日分だけ読み込む
-        prev_data = pandas.read_csv(self.prev_csv_file_path,
-                                         names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
-                                         parse_dates={'datetime': ['date', 'time']},
-                                         )
         prev_last_5days = prev_data.iloc(-1 * 60 * 24 * 5)
         self.data = prev_last_5days.append(data)
         # CSVのインデックス
@@ -89,7 +89,7 @@ class FxEnv(gym.Env):
 
         # インデックスをインクリメント
         self.read_index += 1
-        # obs, reward, done, infoを返す TODO infoを作る
+        # obs, reward, done, infoを返す
         return self.make_obs(), self.obs.balance, self.read_index >= len(self.data), self.info
 
     def _render(self, mode='human', close=False):
@@ -105,11 +105,16 @@ class FxEnv(gym.Env):
         """
         obs = numpy.array()
         if self._obs_type == 'human':
-            # humanの場合はmatplotlibでチャートのimgを作成する
+            # TODO humanの場合はmatplotlibでチャートのimgを作成する?
             pass
         elif self._obs_type == 'ohlc_array':
-            # TODO
-            return
+            target = self.data.iloc[self.read_index - 60 * 24 * 5: self.read_index]
+            m1 = target.iloc[-64:]
+            m5 = target.resample('5min').ohlc()[-64]
+            m30 = target.resample('30min').ohlc()[-64]
+            h4 = target.resample('4hour').ohlc()[-64]
+            d1 = target.resample('1day').ohlc()[-64]
+            return numpy.array([m1, m5, m30, h4, d1])
 
 
 class AccountInformation(object):
