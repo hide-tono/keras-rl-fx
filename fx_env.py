@@ -3,6 +3,8 @@ import gym
 import numpy
 import pandas
 from gym import spaces
+import matplotlib.pyplot as plt
+import matplotlib.finance as mpf
 
 
 class FxEnv(gym.Env):
@@ -30,8 +32,8 @@ class FxEnv(gym.Env):
         self.stop_loss_pips = 15
         # ロット数
         self.lots = 0.1
-        # 1分足、5分足、30分足、4時間足、日足の5時系列データを64本分作る
-        self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape([5, 64, 4]))
+        # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
+        self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape([4, 64, 4]))
 
     def _reset(self):
         self.info = AccountInformation(self.initial_balance)
@@ -39,16 +41,16 @@ class FxEnv(gym.Env):
         self.data = pandas.DataFrame()
         for path in self.csv_file_paths:
             csv = pandas.read_csv(self.csv_file_path,
-                               names=['date', 'time', 'open', 'high', 'low', 'close', 'v'],
-                               parse_dates={'datetime': ['date', 'time']},
-                               )
+                                  names=['date', 'time', 'open', 'high', 'low', 'close', 'v'],
+                                  parse_dates={'datetime': ['date', 'time']},
+                                  )
             csv.index = csv['datetime']
             csv = csv.drop('datetime', axis=1)
             csv = csv.drop('v', axis=1)
             self.data = csv.append(csv)
             # 最後に読んだCSVのインデックスを開始インデックスとする
-            self.read_index = len(self.data) - len(csv) 
-        # チケット一覧
+            self.read_index = len(self.data) - len(csv)
+            # チケット一覧
         self.tickets = []
 
     def _step(self, action):
@@ -97,21 +99,30 @@ class FxEnv(gym.Env):
 
     def make_obs(self):
         """
-        1分足、5分足、30分足、4時間足、日足の5時系列データを64本分作成する
+        1分足、5分足、30分足、4時間足の4時系列データを64本分作成する
         :return:
         """
+        target = self.data.iloc[self.read_index - 60 * 4 * 70: self.read_index]
         if self._obs_type == 'human':
-            # TODO humanの場合はmatplotlibでチャートのimgを作成する?
+            # humanの場合はmatplotlibでチャートのimgを作成する?
+            plt.figure(figsize=(10, 4))
+            ax = plt.subplot(2, 2, 1)
+            # y軸のオフセット表示を無効にする。
+            ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            data = target.iloc[-64:].values
+            # ローソク足は全横幅の太さが1である。表示する足数で割ってさらにその1/3の太さにする
+            width = 1.0 / 64 / 3
+            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+
             pass
         elif self._obs_type == 'ohlc_array':
-            target = self.data.iloc[self.read_index - 60 * 24 * 70: self.read_index]
             # TODO これだとcloseしか利用していないので正確ではない
             m1 = numpy.array(target.iloc[-64:][target.columns])
             m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
             m30 = numpy.array(target['close'].resample('30min').ohlc().dropna().iloc[-64:][target.columns])
             h4 = numpy.array(target['close'].resample('4H').ohlc().dropna().iloc[-64:][target.columns])
-            d1 = numpy.array(target['close'].resample('1D').ohlc().dropna().iloc[-64:][-target.columns])
-            return numpy.array([m1, m5, m30, h4, d1])
+            return numpy.array([m1, m5, m30, h4])
+
 
 class AccountInformation(object):
     """
