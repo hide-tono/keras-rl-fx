@@ -8,7 +8,7 @@ from gym import spaces
 class FxEnv(gym.Env):
     metadata = {'render.modes': ['human', 'ohlc_array']}
 
-    def __init__(self, csv_path, prev_csv_path):
+    def __init__(self, csv_paths):
         # 定数
         self.STAY = 0
         self.BUY = 1
@@ -18,10 +18,8 @@ class FxEnv(gym.Env):
         self.MAX_VALUE = 2
         # 初期の口座資金
         self.initial_balance = 10000
-        # CSVファイルのパス
-        self.csv_file_path = csv_path
-        # 前のCSVファイルのパス
-        self.prev_csv_file_path = prev_csv_path
+        # CSVファイルのパス配列(最低4ヶ月分を昇順で)
+        self.csv_file_paths = csv_paths
         # スプレッド
         self.spread = 0.5
         # Point(1pipsの値)
@@ -32,25 +30,24 @@ class FxEnv(gym.Env):
         self.stop_loss_pips = 15
         # ロット数
         self.lots = 0.1
-        # 1分足、5分足、30分足、4時間足、日足の5時系列データを64本分
+        # 1分足、5分足、30分足、4時間足、日足の5時系列データを64本分作る
         self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape([5, 64, 4]))
 
     def _reset(self):
         self.info = AccountInformation(self.initial_balance)
         # CSVを読み込む
-        data = pandas.read_csv(self.csv_file_path,
-                               names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
+        self.data = pandas.DataFrame()
+        for path in self.csv_file_paths:
+            csv = pandas.read_csv(self.csv_file_path,
+                               names=['date', 'time', 'open', 'high', 'low', 'close', 'v'],
                                parse_dates={'datetime': ['date', 'time']},
                                )
-        # 先月分のCSVを5日分だけ読み込む
-        prev_data = pandas.read_csv(self.prev_csv_file_path,
-                                    names=['date', 'time', 'o', 'h', 'l', 'c', 'v'],
-                                    parse_dates={'datetime': ['date', 'time']},
-                                    )
-        prev_last_5days = prev_data.iloc(-1 * 60 * 24 * 5)
-        self.data = prev_last_5days.append(data)
-        # CSVのインデックス
-        self.read_index = 60 * 24 * 5
+            csv.index = csv['datetime']
+            csv = csv.drop('datetime', axis=1)
+            csv = csv.drop('v', axis=1)
+            self.data = csv.append(csv)
+            # 最後に読んだCSVのインデックスを開始インデックスとする
+            self.read_index = len(self.data) - len(csv) 
         # チケット一覧
         self.tickets = []
 
@@ -103,19 +100,18 @@ class FxEnv(gym.Env):
         1分足、5分足、30分足、4時間足、日足の5時系列データを64本分作成する
         :return:
         """
-        obs = numpy.array()
         if self._obs_type == 'human':
             # TODO humanの場合はmatplotlibでチャートのimgを作成する?
             pass
         elif self._obs_type == 'ohlc_array':
-            target = self.data.iloc[self.read_index - 60 * 24 * 5: self.read_index]
-            m1 = target.iloc[-64:]
-            m5 = target.resample('5min').ohlc()[-64]
-            m30 = target.resample('30min').ohlc()[-64]
-            h4 = target.resample('4hour').ohlc()[-64]
-            d1 = target.resample('1day').ohlc()[-64]
+            target = self.data.iloc[self.read_index - 60 * 24 * 70: self.read_index]
+            # TODO これだとcloseしか利用していないので正確ではない
+            m1 = numpy.array(target.iloc[-64:][target.columns])
+            m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
+            m30 = numpy.array(target['close'].resample('30min').ohlc().dropna().iloc[-64:][target.columns])
+            h4 = numpy.array(target['close'].resample('4H').ohlc().dropna().iloc[-64:][target.columns])
+            d1 = numpy.array(target['close'].resample('1D').ohlc().dropna().iloc[-64:][-target.columns])
             return numpy.array([m1, m5, m30, h4, d1])
-
 
 class AccountInformation(object):
     """
