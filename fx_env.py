@@ -89,33 +89,45 @@ class FxEnv(gym.Env):
         # インデックスをインクリメント
         self.read_index += 1
         # obs, reward, done, infoを返す
-        return self.make_obs(), self.obs.balance, self.read_index >= len(self.data), self.info
+        return self.make_obs('ohlc_array'), self.info.balance, self.read_index >= len(self.data), self.info
 
     def _render(self, mode='human', close=False):
-        if mode == 'human':
-            return self.balance
-        else:
-            pass
+        return self.make_obs(mode)
 
-    def make_obs(self):
+    def make_obs(self, mode):
         """
         1分足、5分足、30分足、4時間足の4時系列データを64本分作成する
         :return:
         """
         target = self.data.iloc[self.read_index - 60 * 4 * 70: self.read_index]
-        if self._obs_type == 'human':
+        if mode == 'human':
             # humanの場合はmatplotlibでチャートのimgを作成する?
-            plt.figure(figsize=(10, 4))
+            fig = plt.figure(figsize=(10, 4))
+            # ローソク足は全横幅の太さが1である。表示する足数で割ってさらにその1/3の太さにする
+            width = 1.0 / 64 / 3
+            # 1分足
             ax = plt.subplot(2, 2, 1)
             # y軸のオフセット表示を無効にする。
             ax.get_yaxis().get_major_formatter().set_useOffset(False)
             data = target.iloc[-64:].values
-            # ローソク足は全横幅の太さが1である。表示する足数で割ってさらにその1/3の太さにする
-            width = 1.0 / 64 / 3
             mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
-
-            pass
-        elif self._obs_type == 'ohlc_array':
+            # 5分足
+            ax = plt.subplot(2, 2, 2)
+            ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            data = target['close'].resample('5min').ohlc().dropna().iloc[-64:].values
+            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # 30分足
+            ax = plt.subplot(2, 2, 3)
+            ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            data = target['close'].resample('30min').ohlc().dropna().iloc[-64:].values
+            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # 4時間足
+            ax = plt.subplot(2, 2, 4)
+            ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            data = target['close'].resample('4H').ohlc().dropna().iloc[-64:].values
+            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            return fig.canvas.buffer_rgba()
+        elif mode == 'ohlc_array':
             # TODO これだとcloseしか利用していないので正確ではない
             m1 = numpy.array(target.iloc[-64:][target.columns])
             m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
@@ -130,16 +142,16 @@ class AccountInformation(object):
     """
 
     def __init__(self, initial_balance):
-        # 口座資金
+        # 口座資金(未確定含む)
         self.balance = initial_balance
+        # 口座資金
+        self.fixed_balance = initial_balance
         # 総獲得pips
         self.total_pips = 0
         # 総獲得pips(買い)
         self.total_pips_buy = 0
         # 総獲得pips(売り)
         self.total_pips_sell = 0
-        # チャート
-        self.chart = []
 
 
 class Ticket(object):
