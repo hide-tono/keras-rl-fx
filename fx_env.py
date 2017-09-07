@@ -59,8 +59,29 @@ class FxEnv(gym.Env):
         bid = current_data['c'] - self.spread * self.point
 
         if action == self.STAY:
-            # TODO stay
-            pass
+            for ticket in self.tickets:
+                if ticket.order_type == self.BUY:
+                    if bid > ticket.take_profit:
+                        # 買いチケットを利確
+                        profit = (ticket.take_profit - ticket.open_price) * ticket.lots
+                        self.info.balance += profit
+                        self.info.total_pips_buy += profit
+                    elif bid < ticket.stop_loss:
+                        # 買いチケットを損切り
+                        profit = (ticket.stop_loss - ticket.open_price) * ticket.lots
+                        self.info.balance += profit
+                        self.info.total_pips_buy += profit
+                elif ticket.order_type == self.SELL:
+                    if ask < ticket.take_profit:
+                        # 売りチケットを利確
+                        profit = (ticket.open_price - ticket.take_profit) * ticket.lots
+                        self.info.balance += profit
+                        self.info.total_pips_sell += profit
+                    elif bid < ticket.stop_loss:
+                        # 売りチケットを損切り
+                        profit = (ticket.open_price - ticket.stop_loss) * ticket.lots
+                        self.info.balance += profit
+                        self.info.total_pips_sell += profit
         elif action == self.BUY:
             ticket = Ticket(self.BUY, ask, ask + self.take_profit_pips * self.point,
                             ask - self.stop_loss_pips * self.point, self.lots)
@@ -72,19 +93,17 @@ class FxEnv(gym.Env):
             self.tickets.append(ticket)
             pass
         elif action == self.CLOSE:
-            if len(self.tickets) > 0:
-                for i in range(len(self.tickets)):
-                    ticket = self.tickets[i]
-                    if ticket.order_type == self.BUY:
-                        # 買いチケットをクローズ
-                        profit = (bid - ticket.open_price) * ticket.lots
-                        self.info.total_pips += profit
-                        self.info.total_pips_buy += profit
-                    elif ticket.order_type == self.SELL:
-                        # 売りチケットをクローズ
-                        profit = (ticket.open_price - ask) * ticket.lots
-                        self.info.total_pips += profit
-                        self.info.total_pips_sell += profit
+            for ticket in self.tickets:
+                if ticket.order_type == self.BUY:
+                    # 買いチケットをクローズ
+                    profit = (bid - ticket.open_price) * ticket.lots
+                    self.info.balance += profit
+                    self.info.total_pips_buy += profit
+                elif ticket.order_type == self.SELL:
+                    # 売りチケットをクローズ
+                    profit = (ticket.open_price - ask) * ticket.lots
+                    self.info.balance += profit
+                    self.info.total_pips_sell += profit
 
         # インデックスをインクリメント
         self.read_index += 1
@@ -142,12 +161,10 @@ class AccountInformation(object):
     """
 
     def __init__(self, initial_balance):
-        # 口座資金(未確定含む)
+        # 口座資金(含み益含む)
         self.balance = initial_balance
         # 口座資金
         self.fixed_balance = initial_balance
-        # 総獲得pips
-        self.total_pips = 0
         # 総獲得pips(買い)
         self.total_pips_buy = 0
         # 総獲得pips(売り)
