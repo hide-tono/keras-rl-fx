@@ -5,12 +5,16 @@ import pandas
 from gym import spaces
 import matplotlib.pyplot as plt
 import matplotlib.finance as mpf
+import datetime
+from dateutil import relativedelta
+import os
+import urllib.request
 
 
 class FxEnv(gym.Env):
     metadata = {'render.modes': ['human', 'ohlc_array']}
 
-    def __init__(self, csv_paths):
+    def __init__(self):
         # 定数
         self.STAY = 0
         self.BUY = 1
@@ -21,7 +25,14 @@ class FxEnv(gym.Env):
         # 初期の口座資金
         self.initial_balance = 10000
         # CSVファイルのパス配列(最低4ヶ月分を昇順で)
-        self.csv_file_paths = csv_paths
+        now = datetime.datetime.now()
+        for _ in range(4):
+            now = now - relativedelta(months=1)
+            filename = 'DAT_MT_EURUSD_M1_{}'.format(now.strftime('%Y%m'))
+            if not os.path.exists(filename):
+                print('ファイルが存在していません。下記からダウンロードしてください。', filename)
+                print('http://www.histdata.com/download-free-forex-historical-data/?/metatrader/1-minute-bar-quotes/EURUSD/')
+        self.csv_file_paths = ['']
         # スプレッド
         self.spread = 0.5
         # Point(1pipsの値)
