@@ -25,14 +25,16 @@ class FxEnv(gym.Env):
         # 初期の口座資金
         self.initial_balance = 10000
         # CSVファイルのパス配列(最低4ヶ月分を昇順で)
+        self.csv_file_paths = []
         now = datetime.datetime.now()
         for _ in range(4):
-            now = now - relativedelta(months=1)
-            filename = 'DAT_MT_EURUSD_M1_{}'.format(now.strftime('%Y%m'))
+            now = now - relativedelta.relativedelta(months=1)
+            filename = 'DAT_MT_EURUSD_M1_{}.csv'.format(now.strftime('%Y%m'))
             if not os.path.exists(filename):
                 print('ファイルが存在していません。下記からダウンロードしてください。', filename)
                 print('http://www.histdata.com/download-free-forex-historical-data/?/metatrader/1-minute-bar-quotes/EURUSD/')
-        self.csv_file_paths = ['']
+            else:
+                self.csv_file_paths.append(filename)
         # スプレッド
         self.spread = 0.5
         # Point(1pipsの値)
@@ -51,14 +53,14 @@ class FxEnv(gym.Env):
         # CSVを読み込む
         self.data = pandas.DataFrame()
         for path in self.csv_file_paths:
-            csv = pandas.read_csv(self.csv_file_path,
+            csv = pandas.read_csv(path,
                                   names=['date', 'time', 'open', 'high', 'low', 'close', 'v'],
                                   parse_dates={'datetime': ['date', 'time']},
                                   )
             csv.index = csv['datetime']
             csv = csv.drop('datetime', axis=1)
             csv = csv.drop('v', axis=1)
-            self.data = csv.append(csv)
+            self.data = self.data.append(csv)
             # 最後に読んだCSVのインデックスを開始インデックスとする
             self.read_index = len(self.data) - len(csv)
             # チケット一覧
