@@ -68,8 +68,8 @@ class FxEnv(gym.Env):
 
     def _step(self, action):
         current_data = self.data.iloc[self.read_index]
-        ask = current_data['c'] + self.spread * self.point
-        bid = current_data['c'] - self.spread * self.point
+        ask = current_data['close'] + self.spread * self.point
+        bid = current_data['close'] - self.spread * self.point
 
         if action == self.STAY:
             for ticket in self.tickets:

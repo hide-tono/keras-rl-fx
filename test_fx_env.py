@@ -1,4 +1,5 @@
 import gym
+import random
 
 env = gym.make('FxEnv-v0')
 
@@ -11,7 +12,7 @@ for _ in range(Episodes):
     done = False
     count = 0
     while not done:
-        action = env.action_space.sample()  # random
+        action = random.choice([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3])
         observation, reward, done, info = env.step(action)
         obs = obs + [observation]
         # print observation,reward,done,info
