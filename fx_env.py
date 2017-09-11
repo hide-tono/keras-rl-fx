@@ -45,6 +45,8 @@ class FxEnv(gym.Env):
         self.stop_loss_pips = 15
         # ロット数
         self.lots = 0.1
+        # 0～3のアクション。定数に詳細は記載している
+        self.action_space = gym.spaces.Discrete(4)
         # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
         self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape([4, 64, 4]))
 
