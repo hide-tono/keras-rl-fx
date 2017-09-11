@@ -18,15 +18,5 @@ for _ in range(Episodes):
         # print observation,reward,done,info
         count += 1
         if done:
-            print(reward)
-            print(count)
-
-df = env.sim.to_df()
-
-df.head()
-df.tail()
-
-buyhold = lambda x, y: 2
-df = env.run_strat(buyhold)
-
-df10 = env.run_strats(buyhold, Episodes)
+            print('reward:', reward)
+            print('steps:', count)

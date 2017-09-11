@@ -135,32 +135,37 @@ class FxEnv(gym.Env):
         """
         target = self.data.iloc[self.read_index - 60 * 4 * 70: self.read_index]
         if mode == 'human':
-            # humanの場合はmatplotlibでチャートのimgを作成する?
-            fig = plt.figure(figsize=(10, 4))
-            # ローソク足は全横幅の太さが1である。表示する足数で割ってさらにその1/3の太さにする
-            width = 1.0 / 64 / 3
-            # 1分足
-            ax = plt.subplot(2, 2, 1)
-            # y軸のオフセット表示を無効にする。
-            ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            data = target.iloc[-64:].values
-            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
-            # 5分足
-            ax = plt.subplot(2, 2, 2)
-            ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            data = target['close'].resample('5min').ohlc().dropna().iloc[-64:].values
-            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
-            # 30分足
-            ax = plt.subplot(2, 2, 3)
-            ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            data = target['close'].resample('30min').ohlc().dropna().iloc[-64:].values
-            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
-            # 4時間足
-            ax = plt.subplot(2, 2, 4)
-            ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            data = target['close'].resample('4H').ohlc().dropna().iloc[-64:].values
-            mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
-            return fig.canvas.buffer_rgba()
+            m1 = numpy.array(target.iloc[-64:][target.columns])
+            m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
+            m30 = numpy.array(target['close'].resample('30min').ohlc().dropna().iloc[-64:][target.columns])
+            h4 = numpy.array(target['close'].resample('4H').ohlc().dropna().iloc[-64:][target.columns])
+            return numpy.array([m1, m5, m30, h4])
+            # # humanの場合はmatplotlibでチャートのimgを作成する?
+            # fig = plt.figure(figsize=(10, 4))
+            # # ローソク足は全横幅の太さが1である。表示する足数で割ってさらにその1/3の太さにする
+            # width = 1.0 / 64 / 3
+            # # 1分足
+            # ax = plt.subplot(2, 2, 1)
+            # # y軸のオフセット表示を無効にする。
+            # ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            # data = target.iloc[-64:].values
+            # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # # 5分足
+            # ax = plt.subplot(2, 2, 2)
+            # ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            # data = target['close'].resample('5min').ohlc().dropna().iloc[-64:].values
+            # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # # 30分足
+            # ax = plt.subplot(2, 2, 3)
+            # ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            # data = target['close'].resample('30min').ohlc().dropna().iloc[-64:].values
+            # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # # 4時間足
+            # ax = plt.subplot(2, 2, 4)
+            # ax.get_yaxis().get_major_formatter().set_useOffset(False)
+            # data = target['close'].resample('4H').ohlc().dropna().iloc[-64:].values
+            # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
+            # return fig.canvas.buffer_rgba()
         elif mode == 'ohlc_array':
             # TODO これだとcloseしか利用していないので正確ではない
             m1 = numpy.array(target.iloc[-64:][target.columns])
