@@ -44,7 +44,9 @@ class FxEnv(gym.Env):
         # 損切りpips
         self.stop_loss_pips = 15
         # ロット数
-        self.lots = 0.1
+        self.lots = 0.01
+        # ロット数
+        self.lot_base = 100000
         # 0～3のアクション。定数に詳細は記載している
         self.action_space = gym.spaces.Discrete(4)
         # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
@@ -67,7 +69,7 @@ class FxEnv(gym.Env):
             # 最後に読んだCSVのインデックスを開始インデックスとする
             self.read_index = len(self.data) - len(csv)
         # そこから開始位置をランダムにずらす(5日分(7220分)は残す)
-        self.read_index += numpy.random.randint(0, (len(csv) - 7220))
+        # self.read_index += numpy.random.randint(0, (len(csv) - 7220))
         # チケット一覧
         self.tickets = []
         return self.make_obs('ohlc_array')
@@ -82,23 +84,23 @@ class FxEnv(gym.Env):
                 if ticket.order_type == self.BUY:
                     if bid > ticket.take_profit:
                         # 買いチケットを利確
-                        profit = (ticket.take_profit - ticket.open_price) * ticket.lots
+                        profit = (ticket.take_profit - ticket.open_price) * ticket.lots * self.lot_base
                         self.info.balance += profit
                         self.info.total_pips_buy += profit
                     elif bid < ticket.stop_loss:
                         # 買いチケットを損切り
-                        profit = (ticket.stop_loss - ticket.open_price) * ticket.lots
+                        profit = (ticket.stop_loss - ticket.open_price) * ticket.lots * self.lot_base
                         self.info.balance += profit
                         self.info.total_pips_buy += profit
                 elif ticket.order_type == self.SELL:
                     if ask < ticket.take_profit:
                         # 売りチケットを利確
-                        profit = (ticket.open_price - ticket.take_profit) * ticket.lots
+                        profit = (ticket.open_price - ticket.take_profit) * ticket.lots * self.lot_base
                         self.info.balance += profit
                         self.info.total_pips_sell += profit
                     elif bid < ticket.stop_loss:
                         # 売りチケットを損切り
-                        profit = (ticket.open_price - ticket.stop_loss) * ticket.lots
+                        profit = (ticket.open_price - ticket.stop_loss) * ticket.lots * self.lot_base
                         self.info.balance += profit
                         self.info.total_pips_sell += profit
         elif action == self.BUY:
@@ -115,19 +117,19 @@ class FxEnv(gym.Env):
             for ticket in self.tickets:
                 if ticket.order_type == self.BUY:
                     # 買いチケットをクローズ
-                    profit = (bid - ticket.open_price) * ticket.lots
+                    profit = (bid - ticket.open_price) * ticket.lots * self.lot_base
                     self.info.balance += profit
                     self.info.total_pips_buy += profit
                 elif ticket.order_type == self.SELL:
                     # 売りチケットをクローズ
-                    profit = (ticket.open_price - ask) * ticket.lots
+                    profit = (ticket.open_price - ask) * ticket.lots * self.lot_base
                     self.info.balance += profit
                     self.info.total_pips_sell += profit
 
         # インデックスをインクリメント
         self.read_index += 1
         # obs, reward, done, infoを返す
-        return self.make_obs('ohlc_array'), self.info.balance, self.read_index >= len(self.data), self.info
+        return self.make_obs('ohlc_array'), self.info.balance, self.info.balance <= 0 or self.read_index >= len(self.data), self.info
 
     def _render(self, mode='human', close=False):
         return self.make_obs(mode)
