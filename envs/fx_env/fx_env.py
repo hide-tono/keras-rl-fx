@@ -66,6 +66,8 @@ class FxEnv(gym.Env):
             self.data = self.data.append(csv)
             # 最後に読んだCSVのインデックスを開始インデックスとする
             self.read_index = len(self.data) - len(csv)
+        # そこから開始位置をランダムにずらす(5日分(7220分)は残す)
+        self.read_index += numpy.random.randint(0, (len(csv) - 7220))
         # チケット一覧
         self.tickets = []
         return self.make_obs('ohlc_array')
