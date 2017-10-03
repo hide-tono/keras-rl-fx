@@ -48,7 +48,8 @@ class FxEnv(gym.Env):
         # 0～3のアクション。定数に詳細は記載している
         self.action_space = gym.spaces.Discrete(4)
         # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
-        self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape([4, 64, 4]))
+        self._reset()
+        self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape(self.make_obs('ohlc_array')))
 
     def _reset(self):
         self.info = AccountInformation(self.initial_balance)
@@ -65,8 +66,9 @@ class FxEnv(gym.Env):
             self.data = self.data.append(csv)
             # 最後に読んだCSVのインデックスを開始インデックスとする
             self.read_index = len(self.data) - len(csv)
-            # チケット一覧
+        # チケット一覧
         self.tickets = []
+        return self.make_obs('ohlc_array')
 
     def _step(self, action):
         current_data = self.data.iloc[self.read_index]
@@ -189,6 +191,13 @@ class AccountInformation(object):
         self.total_pips_buy = 0
         # 総獲得pips(売り)
         self.total_pips_sell = 0
+
+    def items(self):
+        '''
+        rl\core.py line 172 で呼び出される
+        :return: 口座情報
+        '''
+        return [('balance', self.balance), ('fixed_balance', self.fixed_balance), ('total_pips_buy', self.total_pips_buy), ('total_pips_sell', self.total_pips_sell)]
 
 
 class Ticket(object):
