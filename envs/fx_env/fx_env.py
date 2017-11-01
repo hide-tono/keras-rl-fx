@@ -1,14 +1,12 @@
 # coding=utf-8
+import datetime
+import os
+
 import gym
 import numpy
 import pandas
-from gym import spaces
-import matplotlib.pyplot as plt
-import matplotlib.finance as mpf
-import datetime
 from dateutil import relativedelta
-import os
-import urllib.request
+from gym import spaces
 
 
 class FxEnv(gym.Env):
@@ -49,10 +47,11 @@ class FxEnv(gym.Env):
         self.lot_base = 100000
         # 0～3のアクション。定数に詳細は記載している
         self.action_space = gym.spaces.Discrete(4)
-        # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
+        # 観測できる足数
+        self.visible_bar = 32
+        # 1分足、5分足、30分足、4時間足の5時系列データを足数分作る
         self._reset()
         self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape(self.make_obs('ohlc_array')))
-        # 5分足、30分足、4時間足のデータを保持
         self.m5 = []
         self.m30 = []
         self.h4 = []
@@ -133,7 +132,7 @@ class FxEnv(gym.Env):
         # インデックスをインクリメント
         self.read_index += 1
         # obs, reward, done, infoを返す
-        return self.make_obs('ohlc_array'), self.info.balance, self.info.balance <= 0 or self.read_index >= len(self.data), self.info
+        return self.make_obs('ohlc_array'), self.info.total_pips_buy + self.info.total_pips_sell, self.info.balance <= 0 or self.read_index >= len(self.data), self.info
 
     def _render(self, mode='human', close=False):
         return self.make_obs(mode)
@@ -145,10 +144,19 @@ class FxEnv(gym.Env):
         """
         target = self.data.iloc[self.read_index - 60 * 4 * 70: self.read_index]
         if mode == 'human':
-            m1 = numpy.array(target.iloc[-64:][target.columns])
-            m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
-            m30 = numpy.array(target['close'].resample('30min').ohlc().dropna().iloc[-64:][target.columns])
-            h4 = numpy.array(target['close'].resample('4H').ohlc().dropna().iloc[-64:][target.columns])
+            m1 = numpy.array(target.iloc[-1 * self.visible_bar:][target.columns])
+            m5 = numpy.array(target.resample('5min').agg({'open': 'first',
+                                                          'high': 'max',
+                                                          'low': 'min',
+                                                          'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
+            m30 = numpy.array(target.resample('30min').agg({'open': 'first',
+                                                            'high': 'max',
+                                                            'low': 'min',
+                                                            'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
+            h4 = numpy.array(target.resample('4H').agg({'open': 'first',
+                                                        'high': 'max',
+                                                        'low': 'min',
+                                                        'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
             return numpy.array([m1, m5, m30, h4])
             # # humanの場合はmatplotlibでチャートのimgを作成する?
             # fig = plt.figure(figsize=(10, 4))
@@ -158,30 +166,38 @@ class FxEnv(gym.Env):
             # ax = plt.subplot(2, 2, 1)
             # # y軸のオフセット表示を無効にする。
             # ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            # data = target.iloc[-64:].values
+            # data = target.iloc[-1 * self.visible_bar:].values
             # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
             # # 5分足
             # ax = plt.subplot(2, 2, 2)
             # ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            # data = target['close'].resample('5min').ohlc().dropna().iloc[-64:].values
+            # data = target['close'].resample('5min').ohlc().dropna().iloc[-1 * self.visible_bar:].values
             # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
             # # 30分足
             # ax = plt.subplot(2, 2, 3)
             # ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            # data = target['close'].resample('30min').ohlc().dropna().iloc[-64:].values
+            # data = target['close'].resample('30min').ohlc().dropna().iloc[-1 * self.visible_bar:].values
             # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
             # # 4時間足
             # ax = plt.subplot(2, 2, 4)
             # ax.get_yaxis().get_major_formatter().set_useOffset(False)
-            # data = target['close'].resample('4H').ohlc().dropna().iloc[-64:].values
+            # data = target['close'].resample('4H').ohlc().dropna().iloc[-1 * self.visible_bar:].values
             # mpf.candlestick_ohlc(ax, data, width=width, colorup='g', colordown='r')
             # return fig.canvas.buffer_rgba()
         elif mode == 'ohlc_array':
-            # TODO これだとcloseしか利用していないので正確ではない
-            m1 = numpy.array(target.iloc[-64:][target.columns])
-            m5 = numpy.array(target['close'].resample('5min').ohlc().dropna().iloc[-64:][target.columns])
-            m30 = numpy.array(target['close'].resample('30min').ohlc().dropna().iloc[-64:][target.columns])
-            h4 = numpy.array(target['close'].resample('4H').ohlc().dropna().iloc[-64:][target.columns])
+            m1 = numpy.array(target.iloc[-1 * self.visible_bar:][target.columns])
+            m5 = numpy.array(target.resample('5min').agg({'open': 'first',
+                                                          'high': 'max',
+                                                          'low': 'min',
+                                                          'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
+            m30 = numpy.array(target.resample('30min').agg({'open': 'first',
+                                                            'high': 'max',
+                                                            'low': 'min',
+                                                            'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
+            h4 = numpy.array(target.resample('4H').agg({'open': 'first',
+                                                        'high': 'max',
+                                                        'low': 'min',
+                                                        'close': 'last'}).dropna().iloc[-1 * self.visible_bar:][target.columns])
             return numpy.array([m1, m5, m30, h4])
 
 
