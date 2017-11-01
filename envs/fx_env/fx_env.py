@@ -52,6 +52,10 @@ class FxEnv(gym.Env):
         # 1分足、5分足、30分足、4時間足の5時系列データを64本分作る
         self._reset()
         self.observation_space = spaces.Box(low=0, high=self.MAX_VALUE, shape=numpy.shape(self.make_obs('ohlc_array')))
+        # 5分足、30分足、4時間足のデータを保持
+        self.m5 = []
+        self.m30 = []
+        self.h4 = []
 
     def _reset(self):
         self.info = AccountInformation(self.initial_balance)
